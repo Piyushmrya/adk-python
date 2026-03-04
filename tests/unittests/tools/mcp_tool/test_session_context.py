@@ -548,3 +548,34 @@ class TestSessionContext:
 
       # Should not raise exception
       assert session_context._close_event.is_set()
+
+  @pytest.mark.asyncio
+  async def test_sampling_callback_passed_to_client_session(self):
+    """Verify sampling_callback is forwarded to ClientSession."""
+    mock_client = MockClient()
+
+    mock_session = MockClientSession()
+
+    async def dummy_sampling(ctx, params):
+      return None
+
+    with patch(
+            "google.adk.tools.mcp_tool.session_context.ClientSession"
+    ) as mock_session_class:
+      mock_session_class.return_value = mock_session
+
+      session_context = SessionContext(
+        mock_client,
+        timeout=5.0,
+        sse_read_timeout=None,
+        sampling_callback=dummy_sampling,
+      )
+
+      await session_context.start()
+
+      call_args = mock_session_class.call_args
+
+      assert "sampling_callback" in call_args.kwargs
+      assert call_args.kwargs["sampling_callback"] == dummy_sampling
+
+      await session_context.close()
